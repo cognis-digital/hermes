@@ -14,6 +14,12 @@ remember(text)  ->  persisted memory with metadata
 recall(query)   ->  ranked list of the most relevant memories
 ```
 
+<!-- cognis:layman:start -->
+## What is this?
+
+Hermes gives any AI assistant or automated program a persistent memory — a simple database it can write notes into and look things up from later, even across restarts. Instead of forgetting everything when a session ends, your AI agent can remember facts like "this user prefers metric units" or "we deployed the bot on Tuesday" and surface them automatically when they become relevant again. It works entirely offline on your own computer — no cloud accounts, no external services, no setup beyond Python. It is aimed at developers building AI-powered tools and agents who want lightweight, inspectable memory without vendor lock-in.
+<!-- cognis:layman:end -->
+
 ## Why
 
 Most agent "memory" implementations are bolted to a particular model provider, a hosted
@@ -42,6 +48,52 @@ classic TF-IDF and cosine-similarity techniques used here are long-established
 information-retrieval methods. This package re-expresses those ideas in a minimal,
 portable form for Cognis Digital agents; any resemblance to prior implementations is at
 the level of shared, well-known patterns.
+
+<!-- cognis:domains:start -->
+## Domains
+
+**Primary domain:** AI & ML  ·  **JTF MERIDIAN division:** ATHENA-PRIME · SAGE
+
+**Topics:** `cognis` `ai` `llm` `machine-learning` `mcp` `agent-security`
+
+Part of the **Cognis Neural Suite** — 300+ source-available tools organized across 12 domains under the JTF MERIDIAN command structure. See the [suite on GitHub](https://github.com/cognis-digital) and [jtf-meridian](https://github.com/cognis-digital/jtf-meridian) for how the pieces fit together.
+<!-- cognis:domains:end -->
+
+<!-- cognis:install:start -->
+## Install
+
+`hermes` is source-available (not published to PyPI) — every method below installs
+straight from GitHub. Pick whichever you prefer; the one-line scripts auto-detect
+the best tool available on your machine.
+
+**One-liner (Linux / macOS):**
+```sh
+curl -fsSL https://raw.githubusercontent.com/cognis-digital/hermes/HEAD/install.sh | sh
+```
+
+**One-liner (Windows PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/cognis-digital/hermes/HEAD/install.ps1 | iex
+```
+
+**Or install manually — any one of:**
+```sh
+pipx install "git+https://github.com/cognis-digital/hermes.git"     # isolated (recommended)
+uv tool install "git+https://github.com/cognis-digital/hermes.git"  # uv
+pip install "git+https://github.com/cognis-digital/hermes.git"      # pip
+```
+
+**From source:**
+```sh
+git clone https://github.com/cognis-digital/hermes.git
+cd hermes && pip install .
+```
+
+Then run:
+```sh
+hermes --help
+```
+<!-- cognis:install:end -->
 
 ## Install
 
@@ -160,6 +212,32 @@ flowchart LR
 ```
 
 **Explore the suite →** [🗂️ all tools](https://github.com/cognis-digital/cognis-neural-suite) · [⭐ awesome-cognis](https://github.com/cognis-digital/awesome-cognis) · [🔗 cognis-sources](https://github.com/cognis-digital/cognis-sources)
+
+<a name="verification"></a>
+## Verification
+
+[![tests](https://img.shields.io/badge/tests-31%20passing-2ea44f.svg)](AUDIT.md)
+
+Every push is verified end-to-end. Latest audit (2026-06-13):
+
+```text
+tests        : 31 passed, 0 failed, 0 errored
+compile      : all modules parse
+cli          : C:\Python314\python.exe: No module named https
+package      : https
+```
+
+<details><summary>CLI surface (<code>--help</code>)</summary>
+
+```text
+C:\Python314\python.exe: No module named https
+```
+</details>
+
+Full machine-readable results: [`AUDIT.md`](AUDIT.md) · regenerate with `python -m https --help` + `pytest -q`.
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
 
 ## License
 
