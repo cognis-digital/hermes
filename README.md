@@ -14,6 +14,45 @@ remember(text)  ->  persisted memory with metadata
 recall(query)   ->  ranked list of the most relevant memories
 ```
 
+## Usage — step by step
+
+`hermes` is model-agnostic, portable long-term memory for AI agents, backed by a local SQLite store. The DB path resolves from `--db`, then `$HERMES_DB`, then `./hermes_memory.sqlite`.
+
+1. **Install:**
+
+   ```bash
+   pip install cognis-hermes      # or: pip install -e .
+   hermes --version
+   ```
+
+2. **Store a memory** with optional tags and provenance:
+
+   ```bash
+   hermes remember "Customer prefers email over phone" --tags crm,prefs --source intake-form
+   ```
+
+3. **Recall relevant memories** for a query (top-K, optionally filtered by tag):
+
+   ```bash
+   hermes recall "how should I contact the customer?" --limit 5 --tag crm
+   ```
+
+4. **Read / manage the store** — list, fetch by id, inspect stats, or use `--json` for machine-readable output:
+
+   ```bash
+   hermes list --limit 50 --json
+   hermes get 12
+   hermes stats
+   ```
+
+5. **Wire it into an agent / automation** — point all calls at a shared DB and expose the store to an MCP client via the `hermes-mcp` console script:
+
+   ```bash
+   export HERMES_DB=/srv/agent/memory.sqlite
+   hermes remember "deploy finished" --tags ops
+   hermes-mcp            # MCP server (stdio JSON-RPC) for Claude/other agents
+   ```
+
 ## Why
 
 Most agent "memory" implementations are bolted to a particular model provider, a hosted
