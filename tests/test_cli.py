@@ -73,5 +73,61 @@ class CLITests(unittest.TestCase):
             self._run("remember", "x", "--metadata", "not json")
 
 
+class CLIHardeningTests(unittest.TestCase):
+    """Error-path and edge-case tests added during hardening."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self._tmp.name, "harden.sqlite")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _run(self, *args, capture_stderr=False):
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        buf_out = io.StringIO()
+        buf_err = io.StringIO()
+        with redirect_stdout(buf_out), redirect_stderr(buf_err):
+            code = cli.main(["--db", self.db, *args])
+        return code, buf_out.getvalue(), buf_err.getvalue()
+
+    def test_bad_db_path_exits_nonzero(self):
+        """Opening a DB in a non-existent directory should exit with code 2."""
+        import io
+        from contextlib import redirect_stderr, redirect_stdout
+        buf_out = io.StringIO()
+        buf_err = io.StringIO()
+        bad_db = os.path.join(self._tmp.name, "no_such_dir", "mem.sqlite")
+        with redirect_stdout(buf_out), redirect_stderr(buf_err):
+            code = cli.main(["--db", bad_db, "stats"])
+        self.assertEqual(code, 2)
+        self.assertIn("error", buf_err.getvalue().lower())
+
+    def test_negative_limit_exits_nonzero(self):
+        """Passing --limit -1 should print an error to stderr and exit 2."""
+        code, _out, err = self._run("list", "--limit", "-1")
+        self.assertEqual(code, 2)
+        self.assertIn("limit", err.lower())
+
+    def test_negative_offset_exits_nonzero(self):
+        code, _out, err = self._run("list", "--offset", "-3")
+        self.assertEqual(code, 2)
+        self.assertIn("offset", err.lower())
+
+    def test_remember_empty_text_exits_nonzero(self):
+        code, _out, err = self._run("remember", "   ")
+        self.assertNotEqual(code, 0)
+
+    def test_forget_missing_id_exits_nonzero(self):
+        code, _out, _err = self._run("forget", "999")
+        self.assertEqual(code, 1)
+
+    def test_get_missing_id_prints_error_to_stderr(self):
+        code, _out, err = self._run("get", "999")
+        self.assertEqual(code, 1)
+        self.assertIn("999", err)
+
+
 if __name__ == "__main__":
     unittest.main()

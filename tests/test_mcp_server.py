@@ -96,10 +96,73 @@ class MCPDispatchTests(unittest.TestCase):
         stdin = io.StringIO("\n".join(lines) + "\n")
         stdout = io.StringIO()
         serve_stdio(self.store, stdin=stdin, stdout=stdout)
-        out_lines = [l for l in stdout.getvalue().splitlines() if l.strip()]
+        out_lines = [ln for ln in stdout.getvalue().splitlines() if ln.strip()]
         self.assertEqual(len(out_lines), 2)
         init_resp = json.loads(out_lines[0])
         self.assertEqual(init_resp["result"]["serverInfo"]["name"], "cognis-hermes")
+
+
+class MCPHardeningTests(unittest.TestCase):
+    """Error-path and edge-case tests added during hardening."""
+
+    def setUp(self):
+        self.store = MemoryStore(":memory:")
+        self.server = HermesMCPServer(self.store)
+
+    def tearDown(self):
+        self.store.close()
+
+    def _req(self, method, params=None, msg_id=1):
+        return self.server.handle(
+            {"jsonrpc": "2.0", "id": msg_id, "method": method, "params": params or {}}
+        )
+
+    def test_recall_non_integer_limit_returns_tool_error(self):
+        resp = self._req(
+            "tools/call",
+            {"name": "recall", "arguments": {"query": "hello", "limit": "five"}},
+        )
+        self.assertTrue(resp["result"]["isError"])
+        self.assertIn("limit", resp["result"]["content"][0]["text"])
+
+    def test_recall_non_number_min_score_returns_tool_error(self):
+        resp = self._req(
+            "tools/call",
+            {"name": "recall", "arguments": {"query": "hello", "min_score": "high"}},
+        )
+        self.assertTrue(resp["result"]["isError"])
+
+    def test_list_memories_non_integer_limit_returns_tool_error(self):
+        resp = self._req(
+            "tools/call",
+            {"name": "list_memories", "arguments": {"limit": "all"}},
+        )
+        self.assertTrue(resp["result"]["isError"])
+        self.assertIn("limit", resp["result"]["content"][0]["text"])
+
+    def test_forget_non_integer_id_returns_tool_error(self):
+        resp = self._req(
+            "tools/call",
+            {"name": "forget", "arguments": {"id": "abc"}},
+        )
+        self.assertTrue(resp["result"]["isError"])
+
+    def test_unknown_tool_name_returns_tool_error(self):
+        resp = self._req(
+            "tools/call",
+            {"name": "does_not_exist", "arguments": {}},
+        )
+        self.assertTrue(resp["result"]["isError"])
+
+    def test_serve_stdio_malformed_json_returns_parse_error(self):
+        stdin = io.StringIO("this is not json\n")
+        stdout = io.StringIO()
+        serve_stdio(self.store, stdin=stdin, stdout=stdout)
+        line = stdout.getvalue().strip()
+        self.assertTrue(line)
+        resp = json.loads(line)
+        self.assertIn("error", resp)
+        self.assertEqual(resp["error"]["code"], -32700)
 
 
 if __name__ == "__main__":

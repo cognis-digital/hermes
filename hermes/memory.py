@@ -152,11 +152,25 @@ class MemoryStore:
         recency_halflife_days: Optional[float] = _DEFAULT_RECENCY_HALFLIFE_DAYS,
         recency_weight: float = 0.15,
     ) -> None:
+        if not isinstance(path, str) or not path:
+            raise ValueError("path must be a non-empty string")
+        if recency_halflife_days is not None:
+            recency_halflife_days = float(recency_halflife_days)
+            if recency_halflife_days < 0 or recency_halflife_days != recency_halflife_days:
+                raise ValueError(
+                    "recency_halflife_days must be non-negative (or None to disable)"
+                )
+        recency_weight = float(recency_weight)
+        if recency_weight != recency_weight:  # NaN check
+            raise ValueError("recency_weight must not be NaN")
         self.path = path
         self.remove_stopwords = remove_stopwords
         self.recency_halflife_days = recency_halflife_days
         self.recency_weight = max(0.0, min(1.0, recency_weight))
-        self._conn = sqlite3.connect(path)
+        try:
+            self._conn = sqlite3.connect(path)
+        except sqlite3.OperationalError as exc:
+            raise OSError(f"cannot open memory store at {path!r}: {exc}") from exc
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
@@ -273,6 +287,8 @@ class MemoryStore:
         newest_first: bool = True,
     ) -> List[Memory]:
         """List stored memories, most-recent first by default."""
+        limit = max(0, int(limit))
+        offset = max(0, int(offset))
         order = "DESC" if newest_first else "ASC"
         rows = self._conn.execute(
             f"SELECT * FROM memories ORDER BY created_at {order}"
@@ -296,8 +312,14 @@ class MemoryStore:
         each candidate memory, optionally blended with a recency boost. Memories
         that share no terms with the query score 0 and are filtered out.
         """
+        limit = max(0, int(limit))
+        min_score = float(min_score)
+        if min_score != min_score:  # NaN check
+            min_score = 0.0
         query = (query or "").strip()
         if not query:
+            return []
+        if limit == 0:
             return []
 
         q_tokens = tokenize(query, remove_stopwords=self.remove_stopwords)
@@ -406,12 +428,24 @@ class MemoryStore:
 
     @staticmethod
     def _row_to_memory(row: sqlite3.Row) -> Memory:
+        try:
+            tags = json.loads(row["tags"])
+            if not isinstance(tags, list):
+                tags = []
+        except (json.JSONDecodeError, TypeError, KeyError):
+            tags = []
+        try:
+            metadata = json.loads(row["metadata"])
+            if not isinstance(metadata, dict):
+                metadata = {}
+        except (json.JSONDecodeError, TypeError, KeyError):
+            metadata = {}
         return Memory(
             id=int(row["id"]),
-            text=row["text"],
-            tags=json.loads(row["tags"]),
+            text=row["text"] or "",
+            tags=tags,
             source=row["source"],
-            metadata=json.loads(row["metadata"]),
+            metadata=metadata,
             created_at=float(row["created_at"]),
             updated_at=float(row["updated_at"]),
         )

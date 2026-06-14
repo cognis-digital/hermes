@@ -149,5 +149,78 @@ class MemoryStoreTests(unittest.TestCase):
             store2.close()
 
 
+class HardeningTests(unittest.TestCase):
+    """Edge-case and error-path tests added during hardening."""
+
+    def setUp(self):
+        self.store = MemoryStore(":memory:")
+
+    def tearDown(self):
+        self.store.close()
+
+    # -- MemoryStore constructor validation --
+
+    def test_invalid_path_type_raises(self):
+        with self.assertRaises((ValueError, TypeError)):
+            MemoryStore(None)  # type: ignore[arg-type]
+
+    def test_negative_recency_halflife_raises(self):
+        with self.assertRaises(ValueError):
+            MemoryStore(":memory:", recency_halflife_days=-1.0)
+
+    def test_nan_recency_weight_raises(self):
+        with self.assertRaises(ValueError):
+            MemoryStore(":memory:", recency_weight=float("nan"))
+
+    # -- recall edge cases --
+
+    def test_recall_negative_limit_returns_empty(self):
+        self.store.remember("hello world")
+        # Negative limit is silently clamped to 0 -> returns [].
+        self.assertEqual(self.store.recall("hello", limit=-1), [])
+
+    def test_recall_zero_limit_returns_empty(self):
+        self.store.remember("hello world")
+        self.assertEqual(self.store.recall("hello", limit=0), [])
+
+    def test_recall_nan_min_score_does_not_crash(self):
+        self.store.remember("hello world")
+        # NaN min_score is coerced to 0.0; results should come back normally.
+        hits = self.store.recall("hello", min_score=float("nan"))
+        self.assertIsInstance(hits, list)
+
+    # -- list edge cases --
+
+    def test_list_negative_limit_returns_empty(self):
+        self.store.remember("one")
+        result = self.store.list(limit=-5)
+        self.assertEqual(result, [])
+
+    def test_list_negative_offset_is_clamped(self):
+        self.store.remember("one")
+        # Should not raise; treated as offset=0.
+        result = self.store.list(offset=-10)
+        self.assertEqual(len(result), 1)
+
+    def test_list_empty_store(self):
+        self.assertEqual(self.store.list(), [])
+
+    # -- corrupt-row resilience --
+
+    def test_row_to_memory_handles_bad_json_tags(self):
+        """Direct DB injection of bad JSON should not crash recall/list."""
+        self.store._conn.execute(
+            "INSERT INTO memories(text, tags, source, metadata, tokens, created_at, updated_at)"
+            " VALUES(?, ?, NULL, '{}', '[]', 1.0, 1.0)",
+            ("corrupt tags row", "not-valid-json[[["),
+        )
+        self.store._conn.commit()
+        # list() should return the row with a safe fallback (empty tags list).
+        mems = self.store.list()
+        self.assertTrue(any(m.text == "corrupt tags row" for m in mems))
+        bad = next(m for m in mems if m.text == "corrupt tags row")
+        self.assertEqual(bad.tags, [])
+
+
 if __name__ == "__main__":
     unittest.main()

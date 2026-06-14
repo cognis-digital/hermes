@@ -193,11 +193,19 @@ class HermesMCPServer:
         query = args.get("query")
         if not isinstance(query, str) or not query.strip():
             raise _ToolError("'query' is required and must be a non-empty string")
+        try:
+            limit = int(args.get("limit", 5))
+        except (TypeError, ValueError):
+            raise _ToolError("'limit' must be an integer")
+        try:
+            min_score = float(args.get("min_score", 0.0))
+        except (TypeError, ValueError):
+            raise _ToolError("'min_score' must be a number")
         hits = self.store.recall(
             query,
-            limit=int(args.get("limit", 5)),
+            limit=limit,
             tag=args.get("tag"),
-            min_score=float(args.get("min_score", 0.0)),
+            min_score=min_score,
         )
         return {"query": query, "results": [h.to_dict() for h in hits]}
 
@@ -208,7 +216,11 @@ class HermesMCPServer:
         return {"ok": self.store.forget(mem_id), "id": mem_id}
 
     def _tool_list_memories(self, args: Dict[str, Any]) -> Dict[str, Any]:
-        mems = self.store.list(limit=int(args.get("limit", 20)), tag=args.get("tag"))
+        try:
+            limit = int(args.get("limit", 20))
+        except (TypeError, ValueError):
+            raise _ToolError("'limit' must be an integer")
+        mems = self.store.list(limit=limit, tag=args.get("tag"))
         return {"memories": [m.to_dict() for m in mems]}
 
 
@@ -273,7 +285,11 @@ def main(argv=None) -> int:
         help="Path to the SQLite memory file.",
     )
     args = parser.parse_args(argv)
-    store = MemoryStore(args.db)
+    try:
+        store = MemoryStore(args.db)
+    except (OSError, Exception) as exc:
+        print(f"[hermes-mcp] error: cannot open database {args.db!r}: {exc}", file=sys.stderr)
+        return 1
     print(
         f"[hermes-mcp] serving {SERVER_NAME} v{SERVER_VERSION} over stdio "
         f"(db={args.db})",

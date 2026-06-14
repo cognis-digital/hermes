@@ -211,9 +211,26 @@ _DISPATCH = {
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    store = MemoryStore(args.db)
+    # Validate numeric CLI args before touching the store.
+    if hasattr(args, "limit") and args.limit is not None and args.limit < 0:
+        print(f"error: --limit must be >= 0, got {args.limit}", file=sys.stderr)
+        return 2
+    if hasattr(args, "offset") and args.offset is not None and args.offset < 0:
+        print(f"error: --offset must be >= 0, got {args.offset}", file=sys.stderr)
+        return 2
+    try:
+        store = MemoryStore(args.db)
+    except (OSError, Exception) as exc:
+        print(f"error: cannot open database {args.db!r}: {exc}", file=sys.stderr)
+        return 2
     try:
         return _DISPATCH[args.command](store, args)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: unexpected failure: {exc}", file=sys.stderr)
+        return 2
     finally:
         store.close()
 
