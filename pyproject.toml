@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cognis-hermes"
-version = "0.1.0"
+version = "0.1.1"
 description = "A model-agnostic, portable long-term memory framework for AI agents (stdlib-only, SQLite + TF-IDF recall)."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -42,6 +42,7 @@ Homepage = "https://github.com/cognis-digital/hermes"
 Source = "https://github.com/cognis-digital/hermes"
 
 [project.scripts]
+"hermes-emit" = "hermes.connect:emit_main"
 hermes = "hermes.cli:main"
 hermes-mcp = "hermes.mcp_server:main"
 
@@ -50,3 +51,6 @@ packages = ["hermes"]
 
 [tool.setuptools.package-data]
 hermes = ["py.typed"]
+
+[project.optional-dependencies]
+connect = ["cognis-connect @ git+https://github.com/cognis-digital/cognis-connect.git"]
